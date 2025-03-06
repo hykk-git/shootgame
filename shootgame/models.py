@@ -55,7 +55,7 @@ class Gun(Visible):
 
     @overrides
     def update(self):
-        x, y = GameArea.point
+        x, y = Bottom.point
         self.point_x, self.point_y = x//2, y
         self.save()
      
@@ -142,17 +142,14 @@ class Enemy(Collidable):
         self.save()
 
 class GameArea(Visible):
+    # 게임 영역을 나타내는 객체
     height = models.IntegerField(default=800)
     width = models.IntegerField(default=600)
-
+    
     @property
     def frame_size(self):
         return self.height, self.width
     
-    class Meta:
-        abstract = True
-
-class LeftWall(GameArea):
     @overrides
     def aabb(self):
         return (
@@ -164,36 +161,6 @@ class LeftWall(GameArea):
     
     def update(self):
         self.point_x, self.point_y = 0, self.height
-        self.save()
-
-class RightWall(GameArea):
-    @overrides
-    def aabb(self):
-        return (
-            self.width,                                 
-            0,    
-            self.width,
-            self.height
-        )
-    
-    @overrides
-    def update(self):
-        self.point_x, self.point_y = self.width, self.height
-        self.save()
-
-class Bottom(GameArea):
-    @overrides
-    def aabb(self):
-        return (
-            0,                                 
-            0,    
-            self.width,
-            0
-        )
-    
-    @overrides
-    def update(self):
-        self.point_x, self.point_y = self.width, 0
         self.save()
 
 class Score(Effect):

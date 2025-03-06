@@ -180,3 +180,13 @@ class GameUpdateView(View):
             'score': score.status,
             'life': life.status
         })
+        
+class PlayerStatusView(View):
+    def get(self, request):
+        score_obj = Score.objects.first() or Score.objects.create()
+        life_obj = Life.objects.first() or Life.objects.create()
+
+        return JsonResponse({
+            'score': score_obj.status,
+            'life': life_obj.status
+        })
