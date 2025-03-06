@@ -1,0 +1,19 @@
+{
+    "name": "Django Dev Container",
+    "dockerFile": "../Dockerfile",
+    "workspaceFolder": "/workspace/shoot",
+    "forwardPorts": [8000],
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python"
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance"
+            ]
+        }
+    },
+    "postCreateCommand": "pip install -r /workspace/shoot/requirements.txt",
+    "remoteUser": "root"
+}

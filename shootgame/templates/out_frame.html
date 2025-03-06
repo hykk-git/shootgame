@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>슈팅 게임</title>
+</head>
+<body>
+    <h1>슈팅 게임</h1>
+    <p>Score: <span id="score">0</span></p>
+    <p>Life: <span id="life">3</span></p>
+    <p id="gameOverMessage" style="display:none; font-size: 24px; font-weight: bold; color: red;">GAME OVER</p>
+
+    <iframe id="gameArea" src="{% url 'frame' %}" width="600" height="800" frameborder="0"></iframe>
+
+    <script>
+        function updateGameStatus() {
+            fetch('/api/player/status/')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("score").innerText = data.score;
+                    document.getElementById("life").innerText = data.life;
+
+                    if (data.game_over) {
+                        document.getElementById("gameOverMessage").style.display = "block";
+                        document.getElementById("gameArea").contentWindow.postMessage({ gameOver: true }, "*");
+                    }
+                })
+                .catch(error => console.error("Error fetching player status:", error));
+        }
+
+        window.addEventListener("message", function(event) {
+            if (event.data.score !== undefined && event.data.life !== undefined) {
+                document.getElementById("score").innerText = event.data.score;
+                document.getElementById("life").innerText = event.data.life;
+            }
+        }, false);
+
+        setInterval(updateGameStatus, 500);
+    </script>
+</body>
+</html>

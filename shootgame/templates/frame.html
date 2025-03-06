@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>게임 화면</title>
+    <style>
+        #gameArea {
+            position: relative;
+            width: 600px;
+            height: 800px;
+            background-color: lightgray;
+            border: 2px solid black;
+            overflow: hidden;
+        }
+
+        .enemy {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: gray;
+        }
+
+        .bullet {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: black;
+            border-radius: 50%;
+        }
+
+        #gun {
+            position: absolute;
+            width: 50px;
+            height: 20px;
+            background-color: black;
+            bottom: 10px;
+            left: 275px;
+        }
+        
+        #fireBtn {
+            position: absolute;
+            width: 80px;
+            height: 40px;
+            background-color: red;
+            color: white;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            bottom: 10px;
+            right: 10px;
+        }
+
+        #angleControl {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+        }
+
+        #angleDisplay {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameArea">
+        <div id="gun"></div>
+        <button id="fireBtn">FIRE</button>
+        <input type="range" id="angleControl" min="-90" max="90" value="0">
+        <p id="angleDisplay">Angle: 0°</p>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const gameArea = document.getElementById("gameArea");
+            const angleControl = document.getElementById("angleControl");
+            const angleDisplay = document.getElementById("angleDisplay");
+            let selectedAngle = 0;
+
+            angleControl.addEventListener("input", function () {
+                selectedAngle = parseInt(angleControl.value);
+                angleDisplay.innerText = `Angle: ${selectedAngle}°`;
+            });
+
+            // function startPlayer() {
+            //     fetch('/api/player/start/', {
+            //         method: 'POST',
+            //         headers: { 'Content-Type': 'application/json' }
+            //     })
+            //     .then(response => response.json())
+            //     .then(data => console.log("Player created:", data))
+            //     .catch(error => console.error("Error creating player:", error));
+            // }
+
+            function updateGame() {
+                fetch('/api/game/tick/', { method: "POST" })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Game updated:", data);
+                    
+                    updateEntities(data.bullets, "bullet");
+                    updateEntities(data.enemies, "enemy");
+
+                    if (data.game_over) {
+                        window.parent.postMessage({ gameOver: true }, "*");
+                        document.getElementById("fireBtn").disabled = true;
+                    }
+
+                    window.parent.postMessage({ score: data.score, life: data.life }, "*");
+                })
+                .catch(error => console.error("Error updating game state:", error));
+            }
+            
+            function spawnEnemy() {
+                fetch('/api/game/spawn/', { method: 'POST' })  
+                .then(response => response.json())
+                .then(data => console.log("Enemy spawned:", data))
+                .catch(error => console.error("Error spawning enemy:", error));
+            }
+
+    function fireBullet() {
+        fetch('/api/player/fire/', { 
+            method: "POST", 
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ angle: selectedAngle }) 
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error("Bullet could not be fired:", data.error);
+            } else {
+                console.log("Bullet fired:", data);
+            }
+        })
+        .catch(error => console.error("Error firing bullet:", error));
+    }
+
+
+            function updateEntities(entities, className) {
+                document.querySelectorAll(`.${className}`).forEach(e => e.remove());
+                entities.forEach(entity => {
+                    let entityDiv = document.createElement("div");
+                    entityDiv.className = className;
+                    entityDiv.style.left = `${entity.coo_x}px`;
+                    entityDiv.style.top = `${entity.coo_y}px`;
+                    gameArea.appendChild(entityDiv);
+                });
+            }
+
+            document.getElementById("fireBtn").addEventListener("click", function() {
+                fetch('/api/player/fire/', { 
+                    method: "POST", 
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ angle: selectedAngle })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error("Bullet could not be fired:", data.error);
+                    } else {
+                        console.log("Bullet fired:", data);
+                    }
+                })
+                .catch(error => console.error("Error firing bullet:", error));
+            });
+
+            startPlayer();
+            setInterval(updateGame, 100); 
+            setInterval(spawnEnemy, 3000);
+        });
+    </script>
+</body>
+</html>
