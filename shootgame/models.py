@@ -3,8 +3,8 @@ import math
 import random
 from overrides import overrides
 
-class GameObject:
-    __name = models.CharField()
+class GameObject(models.Model):
+    name = models.CharField()
 
     @property
     def name(self):
@@ -14,12 +14,12 @@ class GameObject:
         abstract = True
 
 class Visible(GameObject):
-    __point_x = models.IntegerField()
-    __point_y = models.IntegerField()
-    __size = models.IntegerField()
+    point_x = models.IntegerField()
+    point_y = models.IntegerField()
+    size = models.IntegerField()
     
     def point(self):
-        return self.__point_x, self.__point_y
+        return self.point_x, self.point_y
     
     # size 포함 본인 위치 반환
     def aabb(self):
@@ -42,7 +42,7 @@ class Effect(GameObject):
 
 class Collidable(Visible):
     # 충돌하는 객체들은 속도가 있음(움직임)
-    __speed = models.IntegerField()
+    speed = models.IntegerField()
     
     def isCollision(self, unit):
         pass
@@ -51,12 +51,12 @@ class Collidable(Visible):
         abstract = True
 
 class Gun(Visible):
-    __max_bullet = models.IntegerField(default=3)
+    max_bullet = models.IntegerField(default=3)
 
     @overrides
     def update(self):
         x, y = GameArea.point
-        self.__point_x, self.__point_y = x//2, y
+        self.point_x, self.point_y = x//2, y
         self.save()
      
     def fire(self, angle):
@@ -66,25 +66,25 @@ class Gun(Visible):
         Bullet.create_bullet(angle)
 
 class Bullet(Collidable):
-    __angle = models.IntegerField()
-    gun = models.ForeignKey(Gun)
+    angle = models.IntegerField()
+    gun = models.ForeignKey("Gun", on_delete=models.CASCADE)
 
     @classmethod
     def create_bullet(self, angle):
         return Bullet.objects.create(
             number=str(Bullet.objects.count()+1),
-            __point_x=self.__width,
-            __point_y=self.__height,
-            __angle=angle
+            point_x=self.width,
+            point_y=self.height,
+            angle=angle
         )
     
     @overrides
     def aabb(self):
         return (
-            self.__point_x,                 
-            self.__point_y,                
-            self.__point_x + self.size,    
-            self.__point_y + self.size    
+            self.point_x,                 
+            self.point_y,                
+            self.point_x + self.size,    
+            self.point_y + self.size    
         )
     
     @overrides
@@ -96,17 +96,17 @@ class Bullet(Collidable):
 
     @overrides
     def update(self):
-        x, y = self.__point_x, self.__point_y
-        x += self._speed * math.sin(math.radians(self._angle))
-        y -= self._speed * math.cos(math.radians(self._angle))
+        x, y = self.point_x, self.point_y
+        x += self.speed * math.sin(math.radians(self.angle))
+        y -= self.speed * math.cos(math.radians(self.angle))
         self.save()
     
     def reflex(self):
-        temp_angle = self.__angle
-        self.__angle = -temp_angle
+        temp_angle = self.angle
+        self.angle = -temp_angle
 
 class Enemy(Collidable):
-    spawn_pos = models.CharField()
+    spawn_pos = models.CharField(max_length=50)
 
     @classmethod
     def create_enemy(self):
@@ -114,17 +114,17 @@ class Enemy(Collidable):
 
         return Enemy.objects.create(
             number=str(Bullet.objects.count()+1),
-            __point_x=random.choice(self.spawn_pos),
-            __point_y=self.__height
+            point_x=random.choice(self.spawn_pos),
+            point_y=self.height
         )
     
     @overrides
     def aabb(self):
         return (
-            self.__point_x,                 
-            self.__point_y,                
-            self.__point_x + self.size,    
-            self.__point_y + self.size    
+            self.point_x,                 
+            self.point_y,                
+            self.point_x + self.size,    
+            self.point_y + self.size    
         )
     
     @overrides
@@ -138,16 +138,16 @@ class Enemy(Collidable):
 
     @overrides
     def update(self):
-        self.__point_y += self.__speed
+        self.point_y += self.speed
         self.save()
 
 class GameArea(Visible):
-    __height = models.IntegerField(default=800) 
-    __width = models.IntegerField(default=600)
+    height = models.IntegerField(default=800)
+    width = models.IntegerField(default=600)
 
     @property
     def frame_size(self):
-        return self.__height, self.__width
+        return self.height, self.width
     
     class Meta:
         abstract = True
@@ -159,26 +159,26 @@ class LeftWall(GameArea):
             0,                                 
             0,    
             0,
-            self.__height
+            self.height
         )
     
     def update(self):
-        self.__point_x, self.__point_y = 0, self.__height
+        self.point_x, self.point_y = 0, self.height
         self.save()
 
 class RightWall(GameArea):
     @overrides
     def aabb(self):
         return (
-            self.__width,                                 
+            self.width,                                 
             0,    
-            self.__width,
-            self.__height
+            self.width,
+            self.height
         )
     
     @overrides
     def update(self):
-        self.__point_x, self.__point_y = self.__width, self.__height
+        self.point_x, self.point_y = self.width, self.height
         self.save()
 
 class Bottom(GameArea):
@@ -187,39 +187,32 @@ class Bottom(GameArea):
         return (
             0,                                 
             0,    
-            self.__width,
+            self.width,
             0
         )
     
     @overrides
     def update(self):
-        self.__point_x, self.__point_y = self.__width, 0
+        self.point_x, self.point_y = self.width, 0
         self.save()
 
-class Reflex(Effect):
-    # 충돌시 반사해라
-
-    @overrides
-    def activate(self, unit):
-        unit.reflex()
-
 class Score(Effect):
-    __current_status = models.IntegerField(default=0)
+    current_status = models.IntegerField(default=0)
 
     @property
     def status(self):
-        return self.__current_status
+        return self.current_status
     
     @overrides
     def activate(self):
         self.status += 1
 
 class Life(Effect):
-    __current_status = models.IntegerField(default=0)
+    current_status = models.IntegerField(default=0)
 
     @property
     def status(self):
-        return self.__current_status
+        return self.current_status
 
     @overrides
     def activate(self):

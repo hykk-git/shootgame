@@ -3,17 +3,20 @@ from django.http import JsonResponse, HttpResponse
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.views.generic import TemplateView
 import json
 import random
 import math
 
 from .models import (
     Gun, Bullet, Enemy, GameArea, LeftWall, RightWall, Bottom, 
-    Reflex, Score, Life
+    Score, Life
 )
+class OutFrameView(TemplateView):
+    template_name = "out_frame.html"
 
-def index(request):
-    return render(request, 'game/index.html')
+class FrameView(TemplateView):
+    template_name = "frame.html"
 
 @method_decorator(csrf_exempt, name='dispatch')
 class FrameView(View):
@@ -129,8 +132,7 @@ class GameUpdateView(View):
                     break
             
             if left_wall and bullet.isCollision(left_wall):
-                reflex = Reflex()
-                reflex.activate(bullet)
+                bullet.reflex()
                 
                 collisions.append({
                     'type': 'bullet_wall',
@@ -139,8 +141,7 @@ class GameUpdateView(View):
                 })
             
             if right_wall and bullet.isCollision(right_wall):
-                reflex = Reflex()
-                reflex.activate(bullet)
+                bullet.reflex()
                 
                 collisions.append({
                     'type': 'bullet_wall',
