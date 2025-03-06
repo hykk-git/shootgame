@@ -6,7 +6,7 @@ from django.views.generic import RedirectView
 
 urlpatterns = [
     path('admin/', admin.site.urls), 
-    path('api/', include('shootgame.urls')),
+    path('', include('shootgame.urls')),
     path('', OutFrameView.as_view(), name="home"), 
     path('favicon.ico', RedirectView.as_view(url='/static/favicon.ico')),
 ]

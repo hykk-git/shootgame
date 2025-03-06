@@ -9,4 +9,5 @@ urlpatterns = [
     path('api/spawn/', SpawnView.as_view(), name='spawn'),
     path('api/fire/', FireView.as_view(), name='fire'),
     path('api/update/', GameUpdateView.as_view(), name='update'),
+    path('api/player/status/', PlayerStatusView.as_view(), name='player_status'),
 ]

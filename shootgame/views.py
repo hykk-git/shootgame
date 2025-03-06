@@ -9,38 +9,26 @@ import random
 import math
 
 from .models import (
-    Gun, Bullet, Enemy, GameArea, LeftWall, RightWall, Bottom, 
-    Score, Life
+    Gun, Bullet, Enemy, GameArea, Score, Life
 )
 class OutFrameView(TemplateView):
     template_name = "out_frame.html"
 
-class FrameView(TemplateView):
+class FrameView(TemplateView):  
     template_name = "frame.html"
 
-@method_decorator(csrf_exempt, name='dispatch')
-class FrameView(View):
-    def get(self, request):
-        game_area = GameArea()
+    def get_context_data(self, **kwargs):
+        game_area, created = GameArea.objects.get_or_create(id=1)
         height, width = game_area.frame_size
+        score_obj = Score.objects.first() or Score.objects.create()
+        life_obj = Life.objects.first() or Life.objects.create()
         
-        score_obj = Score.objects.first()
-        life_obj = Life.objects.first()
-        
-        if not score_obj:
-            score_obj = Score.objects.create()
-        
-        if not life_obj:
-            life_obj = Life.objects.create()
-        
-        context = {
+        return {
             'height': height,
             'width': width,
             'score': score_obj.status,
             'life': life_obj.status
         }
-        
-        return JsonResponse(context)
 
 @method_decorator(csrf_exempt, name='dispatch')
 class SpawnView(View):

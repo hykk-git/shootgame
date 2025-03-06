@@ -145,6 +145,8 @@ class GameArea(Visible):
     # 게임 영역을 나타내는 객체
     height = models.IntegerField(default=800)
     width = models.IntegerField(default=600)
+    point_x = models.IntegerField(default=0)  
+    point_y = models.IntegerField(default=0)
     
     @property
     def frame_size(self):
