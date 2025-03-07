@@ -81,9 +81,9 @@ class FireView(View):
 @method_decorator(csrf_exempt, name='dispatch')
 class GameUpdateView(View):
     def get(self, request):
-        left_wall = LeftWall.objects.first()
-        right_wall = RightWall.objects.first()
-        bottom = Bottom.objects.first()
+        left_wall = GameArea.objects.create()
+        right_wall = GameArea.objects.create()
+        bottom = GameArea.objects.create()
     
         score = Score.objects.first() or Score.objects.create()
         life = Life.objects.first() or Life.objects.create()

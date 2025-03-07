@@ -55,7 +55,7 @@ class Gun(Visible):
 
     @overrides
     def update(self):
-        x, y = Bottom.point
+        x, y = GameArea.point
         self.point_x, self.point_y = x//2, y
         self.save()
      
@@ -150,14 +150,14 @@ class GameArea(Visible):
     
     @property
     def frame_size(self):
-        return self.height, self.width
+        return self.width, self.height
     
     @overrides
     def aabb(self):
         return (
-            0,                                 
-            0,    
-            0,
+            self.point_x,                                 
+            self.point_y,    
+            self.width,
             self.height
         )
     
