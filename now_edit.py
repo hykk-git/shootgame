@@ -51,6 +51,7 @@ class Movable(Visible, ABC):
         pass
 
 class Collidable(Movable):
+    # 충돌시 이벤트가 발생하는 객체-> 누구랑 충돌했는지 확인해야 함
     def is_collision(self, unit):
         x1, y1, x2, y2 = self.get_position()
         a1, b1, a2, b2 = unit.get_position()
@@ -128,26 +129,37 @@ class FrameUpdater(GameObject):
     # 움직이는 객체 위치 업데이트하고, 충돌하는 객체 충돌 확인
     bullet = Bullet()
     enemy = Enemy()
-    def update(self, unit, PlayerStatus):
-        if unit.is_collision(self.bullet):
-            PlayerStatus.update(unit)
 
-class PositionUpdater(FrameUpdater):
-    def update(self, unit):
-        for bullet in self.bullets[:]:
-            bullet.update_position()
-            ck.check(bullet, enemy)
-            
-        for enemy in self.enemies[:]:
-            enemy.update_position()
-            ck.update(enemy, GameFrame)
+    @abstractmethod
+    def update(self):
+        pass
 
 class CollisionChecker(FrameUpdater):
     ps = PlayerStatus()
     def check(self, punit, unit):
         # 여기서 if문 쓰면 디미터 위반됨
         punit.is_collision(unit) 
-        
+        if punit.is_collision(unit):
+                bullet.delete()
+                self.ps.update_score()
+
+        if punit.is_collision(unit):
+                enemy.delete()
+                self.ps.lose_life()
+
+class PositionUpdater(FrameUpdater):
+    ck = CollisionChecker()
+
+    def update(self, unit):
+        for bullet in self.bullets[:]:
+            bullet.update_position()
+            self.ck.check(bullet, enemy)
+            self.ck.check(bullet, GameFrame)
+            
+        for enemy in self.enemies[:]:
+            enemy.update_position()
+            self.ck.check(enemy, GameFrame)
+
 if __name__ == "__main__":
     game = ShootingGame()
     game.start()
