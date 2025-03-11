@@ -57,23 +57,8 @@ class Collidable(Movable):
         a1, b1, a2, b2 = unit.get_position()
         return x2 >= a1 and y2 >= b1 and a2 >= x1 and b2 >= y1
 
-class Gun(Visible):
-    bullets = []
-    def __init__(self, bullet):
-        self.max_bullet = 3
-        self.bullet = bullet
-        self.point_x = GameFrame.frame_size[0]//2
-        self.point_y = GameFrame.frame_size[1]
-
-    def get_position(self):
-        return self.point_x, self.point_y, self.point_x + self.size, self.point_y + self.size
-    
-    def fire(self, angle):
-        if len(self.bullets) >= self.max_bullet:
-            self.bullets.pop(0)
-        self.bullets.append(Bullet(angle))
-
 class Bullet(Collidable):
+    # fire할 때 생성되고 enemy, 벽이랑 충돌 체크해야 하는 Collidable 객체
     speed = 50
     
     def __init__(self, angle):
@@ -91,7 +76,24 @@ class Bullet(Collidable):
     def get_position(self):
         return self.point_x, self.point_y, self.point_x + self.size, self.point_y + self.size
 
+class Gun(Visible):
+    # 총알을 발사하는 총 객체-> 내부에 총알을 가지고 있음
+    bullets = []
+    def __init__(self):
+        self.max_bullet = 3
+        self.point_x = GameFrame.frame_size[0]//2
+        self.point_y = GameFrame.frame_size[1]
+
+    def get_position(self):
+        return self.point_x, self.point_y, self.point_x + self.size, self.point_y + self.size
+    
+    def fire(self, angle):
+        if len(self.bullets) >= self.max_bullet:
+            self.bullets.pop(0)
+        self.bullets.append(Bullet(angle))
+
 class Enemy(Collidable):
+    # start할 때 생성되고 바닥이랑 충돌 체크해야 하는 Collidable 객체
     SPAWN_POS = [50, 150, 250, 350, 450]
     speed = 20
     
