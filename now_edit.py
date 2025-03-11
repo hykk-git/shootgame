@@ -12,17 +12,22 @@ class GameObject:
 class ShootingGame:
     # 내부에 GameObject 객체를 갖고 있음(합성)
     obj = GameObject()
-    def start(self):
+    def start(self, obj):
         # 게임 시작시 필요한 행동
         # 1. obj 생성해라
         self.obj.create_object()
     
-    def player_input(self):
+    def player_input(self, obj):
         # 플레이어가 fire 누르면 총알 나가게
-        GameObject.fire()
+        self.obj.fire()
         pass
+    
+    def update_game(self, obj):
+        # 객체 상태 갱신(위치, 플레이어 상태)
+        self.obj.update_position()
 
 class Visible(GameObject, ABC):
+    # 화면에 보이는 객체-> 위치(좌표)와 크기를 갖고 있음
     def __init__(self, point_x, point_y, size):
         self.point_x = point_x
         self.point_y = point_y
@@ -35,9 +40,11 @@ class Visible(GameObject, ABC):
         pass
 
 class Movable(Visible, ABC):
-    def __init__(self, point_x, point_y, size, speed):
+    # 화면에 보이는 객체 중 움직이는 객체-> 속도(속력+방향) 갖고 있음
+    speed = 0
+    angle = 0
+    def __init__(self, point_x, point_y, size):
         super().__init__(point_x, point_y, size)
-        self.speed = speed
     
     @abstractmethod
     def update_position(self):
@@ -50,12 +57,12 @@ class Collidable(Movable):
         return x2 >= a1 and y2 >= b1 and a2 >= x1 and b2 >= y1
 
 class Gun(Visible):
-    def __init__(self, bullets):
-        super().__init__("Gun", 300, 800, 20, 0)
+    bullets = []
+    def __init__(self, bullet):
         self.max_bullet = 3
-        self.bullets = bullets
-        self.point_x = GameArea.frame_size[0]//2
-        self.point_y = GameArea.frame_size[1]
+        self.bullet = bullet
+        self.point_x = GameFrame.frame_size[0]//2
+        self.point_y = GameFrame.frame_size[1]
 
     def get_position(self):
         return self.point_x, self.point_y, self.point_x + self.size, self.point_y + self.size
@@ -69,10 +76,9 @@ class Bullet(Collidable):
     speed = 50
     
     def __init__(self, angle):
-        super().__init__("Bullet", 300, 800, 5, self.speed)
         self.angle = angle
-        self.point_x = GameArea.frame_size[0]//2
-        self.point_y = GameArea.frame_size[1]
+        self.point_x = GameFrame.frame_size[0]//2
+        self.point_y = GameFrame.frame_size[1]
     
     def update_position(self):
         self.point_x += self.speed * math.sin(math.radians(self.angle))
@@ -98,11 +104,10 @@ class Enemy(Collidable):
     def get_position(self):
         return self.point_x, self.point_y, self.point_x + self.size, self.point_y + self.size
 
-class GameArea(Visible):
+class GameFrame(Visible):
     frame_size = (600, 800)
     
     def __init__(self):
-        super().__init__("GameArea", 0, 0, 0)
         self.width, self.height = self.frame_size
     
     def get_position(self):
@@ -110,16 +115,39 @@ class GameArea(Visible):
 
 class PlayerStatus(GameObject):
     def __init__(self, score, life):
-        super().__init__("PlayerStatus")
         self.score = score
         self.life = life
-    
+
     def update_score(self):
         self.score += 1
     
     def lose_life(self):
         self.life -= 1
 
+class FrameUpdater(GameObject):
+    # 움직이는 객체 위치 업데이트하고, 충돌하는 객체 충돌 확인
+    bullet = Bullet()
+    enemy = Enemy()
+    def update(self, unit, PlayerStatus):
+        if unit.is_collision(self.bullet):
+            PlayerStatus.update(unit)
+
+class PositionUpdater(FrameUpdater):
+    def update(self, unit):
+        for bullet in self.bullets[:]:
+            bullet.update_position()
+            ck.check(bullet, enemy)
+            
+        for enemy in self.enemies[:]:
+            enemy.update_position()
+            ck.update(enemy, GameFrame)
+
+class CollisionChecker(FrameUpdater):
+    ps = PlayerStatus()
+    def check(self, punit, unit):
+        # 여기서 if문 쓰면 디미터 위반됨
+        punit.is_collision(unit) 
+        
 if __name__ == "__main__":
     game = ShootingGame()
     game.start()
