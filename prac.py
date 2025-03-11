@@ -84,6 +84,7 @@ class Gun(Visible):
     MAX_BULLETS = 3
 
     def __init__(self):
+        self.x = x
         self.bullets = []
 
     def get_position(self):
@@ -113,5 +114,5 @@ class PlayerStatus(GameObject):
     def lose_life(self):
         self.life -= 1
 
-if __name__ == "main":
+if __name__ == "__main__":
     ShootingGame.start()
