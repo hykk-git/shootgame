@@ -44,28 +44,26 @@ class Movable(Visible, ABC):
     # 화면에 보이는 객체 중 움직이는 객체-> 속도(속력+방향) 갖고 있음
     speed = 0
     angle = 0
-    def __init__(self, point_x, point_y, size):
-        super().__init__(point_x, point_y, size)
     
     @abstractmethod
     def update_position(self):
         pass
 
-class Collidable(Movable):
+class Collidable(Movable, ABC):
     # 충돌시 이벤트가 발생하는 객체-> 누구랑 충돌했는지 확인해야 함
+    ck = CollisionHandler()
+
     def is_collide_at(self, unit):
-        x1, y1, x2, y2 = self.get_position()
-        a1, b1, a2, b2 = unit.get_position()
-        return x2 >= a1 and y2 >= b1 and a2 >= x1 and b2 >= y1
+        pass
 
 class Bullet(Collidable):
     # fire할 때 생성되고 enemy, 벽이랑 충돌 체크해야 하는 Collidable 객체
-    speed = 50
-    
-    def __init__(self, angle):
+    def __init__(self, angle, point_x, point_y, speed, size):
         self.angle = angle
         self.point_x = GameFrame.frame_size[0]//2
         self.point_y = GameFrame.frame_size[1]
+        self.speed = speed
+        self.size = size
     
     def update_position(self):
         self.point_x += self.speed * math.sin(math.radians(self.angle))
@@ -76,6 +74,13 @@ class Bullet(Collidable):
     
     def get_position(self):
         return self.point_x, self.point_y, self.point_x + self.size, self.point_y + self.size
+
+    def is_collide_at(self, unit):
+        x1, y1, x2, y2 = self.get_position()
+        a1, b1, a2, b2 = unit.get_position()
+        
+        if x2 >= a1 and y2 >= b1 and a2 >= x1 and b2 >= y1
+            ck.collide_occur(self, unit)
 
 class Gun(Visible):
     # 총알을 발사하는 총 객체-> 내부에 총알을 가지고 있음
@@ -95,12 +100,12 @@ class Gun(Visible):
 
 class Enemy(Collidable):
     # start할 때 생성되고 바닥이랑 충돌 체크해야 하는 Collidable 객체
-    SPAWN_POS = [50, 150, 250, 350, 450]
-    speed = 20
-    
-    def __init__(self):
-        x = random.choice(self.SPAWN_POS)
-        super().__init__("Enemy", x, 0, 30, self.speed)
+    def __init__(self, angle, point_x, point_y, speed, size):
+        self.angle = angle
+        self.point_x = point_x
+        self.point_y = point_y
+        self.speed = speed
+        self.size = size
     
     def update_position(self):
         self.point_y += self.speed
@@ -108,6 +113,13 @@ class Enemy(Collidable):
     def get_position(self):
         return self.point_x, self.point_y, self.point_x + self.size, self.point_y + self.size
 
+    def is_collide_at(self, unit):
+        x1, y1, x2, y2 = self.get_position()
+        a1, b1, a2, b2 = unit.get_position()
+        
+        if x2 >= a1 and y2 >= b1 and a2 >= x1 and b2 >= y1
+            ck.collide_occur(self, unit)
+            
 class GameFrame(Visible):
     frame_size = (600, 800)
     
@@ -129,9 +141,6 @@ class PlayerStatus(GameObject):
     def lose_life(self):
         self.life -= 1
 
-    def update(self, CollType):
-        pass
-
 class CollType(ABC):
     ps = PlayerStatus()
     def activate(self):
@@ -151,22 +160,33 @@ class EnemyToBottom(CollType):
     def activate(self, bullet, walls):
         self.ps.lose_life()
 
-class CollisionChecker:
+class CollisionHandler:
+    # 충돌을 전달받고 충돌 타입에 따라 PlayerStatus에게 요청하는 객체
     ps = PlayerStatus()
-    def check(self, unit1, unit2, CollType):
-        # 여기서 if문 쓰면 디미터 위반됨
-        if unit1.is_collide_at(unit2):
-            CollType.activate(unit1, unit2)
+    def collide_occur(self, unit1, unit2):
+        # 절차형일 때
+        if unit1 == Bullet and unit2 == GameFrame:
+            unit1.reflex()
+        elif unit1 == Bullet and unit2 == Enemy:
+            unit1.delete()
+            unit2.delete()
+            self.ps.update_score()
+        elif unit1 == Enemy and unit2 == GameFrame:
+            unit1.delete()
+            self.ps.lose_life()
+        
 
 class PositionCreater:
     # 모든 객체 생성을 담당하는 객체
+    SPAWN_POS = [50, 150, 250, 350, 450]
+
     def create_object(self, object):
         pass
 
 class PositionUpdater:
     # Movable 타입 객체 위치를 틱당 업데이트하는 객체
-    ck = CollisionChecker()
     pk = PositionCreater()
+    ck = CollisionHandler()
 
     def update(self, unit):
         for bullet in self.bullets[:]:
@@ -175,9 +195,12 @@ class PositionUpdater:
         for enemy in self.enemies[:]:
             enemy.update_position()
         
-        self.ck.check(bullet, GameFrame, BulletToWalls)
-        self.ck.check(bullet, enemy, BulletToEnemy)
-        self.ck.check(enemy, GameFrame, EnemyToBottom)
+        for bullet in self.bullets[:]:
+            bullet.is_collide_at(enemy)
+            bullet.is_collide_at(GameFrame)
+        
+        for enemy in self.enemies[:]:
+            enemy.is_collide_at(GameFrame)
 
 if __name__ == "__main__":
     game = ShootingGame()
