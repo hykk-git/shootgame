@@ -3,9 +3,8 @@ from abc import *
 import random
 
 class GameObject:
-
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, position_creator):
+        self.position_creator = position_creator
 
     def create_object(self):
         pass
@@ -51,19 +50,27 @@ class Movable(Visible, ABC):
 
 class Collidable(Movable, ABC):
     # 충돌시 이벤트가 발생하는 객체-> 누구랑 충돌했는지 확인해야 함
-    ck = CollisionHandler()
+    def __init__(self, angle, point_x, point_y, speed, size, coll_handler):
+        self.angle = angle
+        self.point_x = point_x
+        self.point_y = point_y
+        self.speed = speed
+        self.size = size
+        self.coll_handler = coll_handler 
+        # java였으면 원래 여기가 CollisionHandler collHandler
 
     def is_collide_at(self, unit):
         pass
 
 class Bullet(Collidable):
     # fire할 때 생성되고 enemy, 벽이랑 충돌 체크해야 하는 Collidable 객체
-    def __init__(self, angle, point_x, point_y, speed, size):
+    def __init__(self, angle, point_x, point_y, speed, size, coll_handler):
         self.angle = angle
-        self.point_x = GameFrame.frame_size[0]//2
-        self.point_y = GameFrame.frame_size[1]
+        self.point_x = point_x
+        self.point_y = point_y
         self.speed = speed
         self.size = size
+        self.coll_handler = coll_handler
     
     def update_position(self):
         self.point_x += self.speed * math.sin(math.radians(self.angle))
@@ -79,8 +86,8 @@ class Bullet(Collidable):
         x1, y1, x2, y2 = self.get_position()
         a1, b1, a2, b2 = unit.get_position()
         
-        if x2 >= a1 and y2 >= b1 and a2 >= x1 and b2 >= y1
-            ck.collide_occur(self, unit)
+        if x2 >= a1 and y2 >= b1 and a2 >= x1 and b2 >= y1:
+            self.coll_handler.collide_occur(self, unit)
 
 class Gun(Visible):
     # 총알을 발사하는 총 객체-> 내부에 총알을 가지고 있음
@@ -117,10 +124,11 @@ class Enemy(Collidable):
         x1, y1, x2, y2 = self.get_position()
         a1, b1, a2, b2 = unit.get_position()
         
-        if x2 >= a1 and y2 >= b1 and a2 >= x1 and b2 >= y1
-            ck.collide_occur(self, unit)
-            
+        if x2 >= a1 and y2 >= b1 and a2 >= x1 and b2 >= y1:
+            self.coll_handler.collide_occur(unit)
+
 class GameFrame(Visible):
+    # GameObject들이 등장하는 게임 화면
     frame_size = (600, 800)
     
     def __init__(self):
@@ -141,40 +149,29 @@ class PlayerStatus(GameObject):
     def lose_life(self):
         self.life -= 1
 
-class CollType(ABC):
-    ps = PlayerStatus()
-    def activate(self):
+class CollisionHandler(ABC):
+    # 충돌 처리를 관리하는 객체 
+    # 충돌 타입에 따라 PlayerStatus에게 요청
+    def __init__(self):
+        player_status = PlayerStatus()
+
+    @abstractmethod
+    def collide_occur(self, unit1, unit2):
         pass
 
-class BulletToEnemy(CollType):
-    def activate(self, bullet, enemy):
+class BulletCollisionHandler(CollisionHandler):
+    def collide_occur(self, bullet, enemy):
         bullet.delete()
         enemy.delete()
         self.ps.update_score()
 
-class BulletToWalls(CollType):
-    def activate(self, bullet, walls):
+    def collide_occur(self, bullet, GameFrame):
         bullet.reflex()
 
-class EnemyToBottom(CollType):
-    def activate(self, bullet, walls):
+class EnemyCollisionHandler(CollisionHandler):
+    def collide_occur(self, enemy, GameFrame):
+        enemy.delete()
         self.ps.lose_life()
-
-class CollisionHandler:
-    # 충돌을 전달받고 충돌 타입에 따라 PlayerStatus에게 요청하는 객체
-    ps = PlayerStatus()
-    def collide_occur(self, unit1, unit2):
-        # 절차형일 때
-        if unit1 == Bullet and unit2 == GameFrame:
-            unit1.reflex()
-        elif unit1 == Bullet and unit2 == Enemy:
-            unit1.delete()
-            unit2.delete()
-            self.ps.update_score()
-        elif unit1 == Enemy and unit2 == GameFrame:
-            unit1.delete()
-            self.ps.lose_life()
-        
 
 class PositionCreater:
     # 모든 객체 생성을 담당하는 객체
