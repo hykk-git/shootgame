@@ -1,5 +1,6 @@
 import math
 from abc import * 
+from multipledispatch import dispatch
 import random
 
 class GameObject:
@@ -41,8 +42,12 @@ class Visible(GameObject, ABC):
 
 class Movable(Visible, ABC):
     # 화면에 보이는 객체 중 움직이는 객체-> 속도(속력+방향) 갖고 있음
-    speed = 0
-    angle = 0
+    def __init__(self, point_x, point_y, size, angle, speed):
+        self.point_x = point_x
+        self.point_y = point_y
+        self.size = size
+        self.angle = angle
+        self.speed = speed
     
     @abstractmethod
     def update_position(self):
@@ -92,10 +97,12 @@ class Bullet(Collidable):
 class Gun(Visible):
     # 총알을 발사하는 총 객체-> 내부에 총알을 가지고 있음
     bullets = []
-    def __init__(self):
-        self.max_bullet = 3
-        self.point_x = GameFrame.frame_size[0]//2
-        self.point_y = GameFrame.frame_size[1]
+    max_bullet = 3
+
+    def __init__(self, point_x, point_y, size):
+        self.point_x = point_x
+        self.point_y = point_y
+        self.size = size
 
     def get_position(self):
         return self.point_x, self.point_y, self.point_x + self.size, self.point_y + self.size
@@ -160,29 +167,44 @@ class CollisionHandler(ABC):
         pass
 
 class BulletCollisionHandler(CollisionHandler):
+    def __init__(self):
+        player_status = PlayerStatus()
+
+    @dispatch(Bullet, Enemy)
     def collide_occur(self, bullet, enemy):
         bullet.delete()
         enemy.delete()
         self.ps.update_score()
 
+    @dispatch(Bullet, GameFrame)
     def collide_occur(self, bullet, GameFrame):
         bullet.reflex()
 
 class EnemyCollisionHandler(CollisionHandler):
+    def __init__(self):
+        player_status = PlayerStatus()
+
     def collide_occur(self, enemy, GameFrame):
         enemy.delete()
         self.ps.lose_life()
 
-class PositionCreater:
+class ObjectCreater:
     # 모든 객체 생성을 담당하는 객체
+    # 분할 필요-> Collidable, Visible
     SPAWN_POS = [50, 150, 250, 350, 450]
 
-    def create_object(self, object):
-        pass
+    def create_bullet(self, angle):
+        return Bullet(GameFrame.frame_size[0]//2, GameFrame.frame_size[1], 30, angle, 50, BulletCollisionHandler)
+    
+    def create_enemy(self):
+        return Enemy(GameFrame.frame_size[0]//2, GameFrame.frame_size[1], 20, 0, 100, BulletCollisionHandler)
 
+    def create_gun(self):
+        return Gun(GameFrame.frame_size[0]//2, GameFrame.frame_size[1], 100)
+    
 class PositionUpdater:
     # Movable 타입 객체 위치를 틱당 업데이트하는 객체
-    pk = PositionCreater()
+    pk = ObjectCreater()
     ck = CollisionHandler()
 
     def update(self, unit):
