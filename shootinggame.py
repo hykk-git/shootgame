@@ -164,8 +164,13 @@ class PlayerStatus(GameObject):
     def lose_life(self):
         self.life -= 1
 
+    def is_game_over(self):
+        return self.life <= 0
+    
 class VisibleObjectCreater(ABC):
     # Visible한 객체를 생성하는 추상 팩토리
+    
+    @abstractmethod
     def create_object(self):
         pass
 
@@ -180,10 +185,6 @@ class GunObjectCreater(VisibleObjectCreater):
     # Visible한 Gun 객체를 생성하는 팩토리
     def create_object(self):
         return Gun(Bottom.get_position()[2]//2, 0)
-
-""" 
-여기 아래부터 수정 필요
-"""
 
 class PositionUpdater:
     # Movable 타입 객체 위치를 틱당 업데이트하는 객체
@@ -211,12 +212,14 @@ class PositionUpdater:
 
 class PlayerInputHandler(ABC):
     @abstractmethod
-    def handle_input(self, input): 
+    def handle_input(self, game, *args): 
         pass
 
 class FireHandler(PlayerInputHandler):
-    gun_creater = GunObjectCreater()
-    gun = gun_creater.create_object()
+    def __init__(self, gun):
+        self.gun = gun
+    # gun_creater = GunObjectCreater()
+    # gun = gun_creater.create_object()
 
     def handle_input(self, game, *args):
         angle = int(args[0])
@@ -226,6 +229,39 @@ class GameOverHandler(PlayerInputHandler):
     def handle_input(self, game, *args):
         print("Game Over")
         game.running = False
+
+class CollisionHandler(ABC):
+    # 충돌 처리를 관리하는 객체 
+    # 충돌 타입에 따라 PlayerStatus에게 요청
+    
+    def __init__(self):
+        self.player_status = PlayerStatus()
+
+    @abstractmethod
+    def collide_occur(self, unit1, unit2):
+        pass
+    
+class BulletCollisionHandler(CollisionHandler):
+    # 총알 객체의 충돌 처리
+    # 분기 오버로딩 처리
+
+    @dispatch(Bullet, Enemy)
+    def collide_occur(self, bullet, enemy):
+        bullet.delete()
+        enemy.delete()
+        self.player_status.update_score()
+        print("score를 얻음!")
+
+    @dispatch(Bullet, GameFrame)
+    def collide_occur(self, bullet):
+        bullet.reflex()
+        print("bullet 반사됨")
+
+class EnemyCollisionHandler(CollisionHandler):
+    def collide_occur(self, enemy):
+        enemy.delete()
+        self.player_status.lose_life()
+        print("life 깎임")
 
 class ShootingGame:
     # 사실상의 Controller 역할
@@ -275,38 +311,7 @@ class ShootingGame:
             enemy = self.enemy_creator.create_object()
             enemies.append(enemy)
             print(f"Enemy 생성됨")
-
-class CollisionHandler(ABC):
-    # 충돌 처리를 관리하는 객체 
-    # 충돌 타입에 따라 PlayerStatus에게 요청
-    player_status = PlayerStatus()
-
-    @abstractmethod
-    def collide_occur(self, unit1, unit2):
-        pass
-    
-class BulletCollisionHandler(CollisionHandler):
-    # 총알 객체의 충돌 처리
-    # 분기 오버로딩 처리
-
-    @dispatch(Bullet, Enemy)
-    def collide_occur(self, bullet, enemy):
-        bullet.delete()
-        enemy.delete()
-        self.ps.update_score()
-        print("score를 얻음!")
-
-    @dispatch(Bullet, GameFrame)
-    def collide_occur(self, bullet):
-        bullet.reflex()
-        print("bullet 반사됨")
-
-class EnemyCollisionHandler(CollisionHandler):
-    def collide_occur(self, enemy):
-        enemy.delete()
-        self.ps.lose_life()
-        print("life 깎임")
-
+            
 if __name__ == "__main__":
     game = ShootingGame()
     game.start()

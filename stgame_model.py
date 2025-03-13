@@ -2,8 +2,25 @@ import math
 from abc import * 
 from multipledispatch import dispatch
 import random
-import time
-import threading
+
+class ShootingGameModel:
+    def __init__(self, width=800, height=600):
+        self.width = width
+        self.height = height
+        
+        # 게임 경계 생성
+        self.bottom = Bottom(width, height)
+        self.left_wall = LeftWalls(width, height)
+        self.right_wall = RightWalls(width, height)
+        
+        # 플레이어 상태 생성
+        self.player_status = PlayerStatus()
+
+        self.gun = GunObjectCreater().create_object()
+        self.enemies = []
+        
+    def fire_gun(self, angle):
+        self.gun.fire(angle)
 
 class GameObject:
     pass
@@ -77,7 +94,6 @@ class Bullet(Collidable):
         
         if x2 >= a1 and y2 >= b1 and a2 >= x1 and b2 >= y1:
             self.coll_handler.collide_occur(self, object)
-            print("bullet 충돌")
 
 class Gun(Visible):
     # 총알을 발사하는 총 객체-> 내부에 총알을 가지고 있음
@@ -102,7 +118,6 @@ class Gun(Visible):
         if len(self.bullets) >= self.max_bullet:
             self.bullets.pop(0)
         self.bullets.append(Bullet(angle, self.get_position()[0], self.get_position()[1], BulletCollisionHandler()))
-        print(f"Bullet {angle}도로 발사됨")
 
 class Enemy(Collidable):
     # start할 때 생성되고 바닥이랑 충돌 체크해야 하는 Collidable 객체
@@ -126,7 +141,6 @@ class Enemy(Collidable):
         
         if x2 >= a1 and y2 >= b1 and a2 >= x1 and b2 >= y1:
             self.coll_handler.collide_occur(self)
-            print("enemy 충돌")
 
 class GameFrame(Visible, ABC):
     # GameObject들이 등장하는 게임 화면 크기를 정의한 객체
@@ -162,11 +176,9 @@ class PlayerStatus(GameObject):
 
     def update_score(self):
         self.score += 1
-        print(f"현재 점수: {self.score}")
     
     def lose_life(self):
         self.life -= 1
-        print(f"남은 생명: {self.life}")
         
     def is_game_over(self):
         return self.life <= 0
@@ -189,50 +201,6 @@ class GunObjectCreater(VisibleObjectCreater):
     def create_object(self):
         return Gun(Bottom.get_position()[2]//2, 0)
 
-class PositionUpdater:
-    # Movable 타입 객체 위치를 틱당 업데이트하는 객체
-    
-    # bullet, enemy 리스트를 받아서 위치 업데이트하는 함수
-    @dispatch(list)
-    def update_object_position(self, objects):
-        for obj in objects:
-            obj.update_position()
-            print(obj, "이동")
-
-    @dispatch(GameObject)
-    def update_object_position(self, obj):
-        obj.update_position()
-        print(obj, "이동")
-    
-    @dispatch(list, list)
-    def update_object_collision(self, moving_objects, collided_objects):
-        for moved in moving_objects:
-            for attacked in collided_objects:
-                moved.is_collide_at(attacked)
-
-    @dispatch(list, Visible)  
-    def update_object_collision(self, objects, visible):
-        for object in objects:
-            object.is_collide_at(visible)
-
-class PlayerInputHandler(ABC):
-    @abstractmethod
-    def handle_input(self, controller, *args): 
-        pass
-
-class FireHandler(PlayerInputHandler):
-    def __init__(self, gun):
-        self.gun = gun
-
-    def handle_input(self, controller, *args):
-        angle = int(args[0])
-        self.gun.fire(angle)
-
-class GameOverHandler(PlayerInputHandler):
-    def handle_input(self, controller, *args):
-        print("Game Over")
-        controller.stop()
-
 class CollisionHandler(ABC):
     # 충돌 처리를 관리하는 객체 
     # 충돌 타입에 따라 PlayerStatus에게 요청
@@ -252,135 +220,15 @@ class BulletCollisionHandler(CollisionHandler):
         bullet.delete()
         enemy.delete()
         self.player_status.update_score()
-        print("score를 얻음!")
 
     @dispatch(Bullet, GameFrame)
     def collide_occur(self, bullet):
         bullet.reflex()
-        print("bullet 반사됨")
 
 class EnemyCollisionHandler(CollisionHandler):
     def collide_occur(self, enemy):
         enemy.delete()
         self.player_status.lose_life()
-        print("life 깎임")
         
     def get_player_status(self):
         return self.player_status
-
-# 콘솔 input을 위한 클래스
-class GameLoopController:
-    def __init__(self, input_processor, game_updater, enemy_spawner):
-        self.input_processor = input_processor
-        self.game_updater = game_updater
-        self.enemy_spawner = enemy_spawner
-        self.running = True
-        
-    def start(self):
-        threading.Thread(target=self.enemy_spawner.start_spawning, daemon=True).start()
-        
-        # 메인 게임 루프
-        while self.running:
-            user_input = input("> ")
-            self.input_processor.process_input(user_input, self)
-            time.sleep(1)
-            self.game_updater.update()
-            
-            # 종료조건: life가 0이 될 때
-            if self.game_updater.check_game_over():
-                self.stop()
-                print("Game Over")
-            
-    def stop(self):
-        self.running = False
-        self.enemy_spawner.stop()
-
-# 사용자 콘솔 입력 해석
-class InputProcessor:
-    def __init__(self, handlers):
-        self.handlers = handlers
-    
-    def process_input(self, user_input, controller):
-        tokens = user_input.strip().lower().split()
-        if not tokens:
-            return
-            
-        command = tokens[0]
-        args = tokens[1:]
-        
-        if command in self.handlers:
-            self.handlers[command].handle_input(controller, *args)
-
-# 게임 상태(이동) 업데이트
-class GameUpdater:
-    def __init__(self, position_updater, gun, enemy_spawner):
-        self.position_updater = position_updater
-        self.gun = gun
-        self.enemy_spawner = enemy_spawner
-        
-        self.bottom = Bottom(800, 600)  
-        self.left_wall = LeftWalls(800, 600)
-        self.right_wall = RightWalls(800, 600)
-        
-        # 플레이어 상태 참조 (충돌 핸들러로부터)
-        enemy = self.enemy_spawner.enemy_creator.create_object()
-        self.player_status = enemy.coll_handler.player_status
-    
-    def update(self):
-        # 각 오브젝트 위치 업데이트
-        bullets = self.gun.get_bullets()
-        enemies = self.enemy_spawner.get_enemies()
-        
-        self.position_updater.update_object_position(bullets)
-        self.position_updater.update_object_position(enemies)
-        self.position_updater.update_object_collision(bullets, enemies)
-        self.position_updater.update_object_collision(bullets, self.left_wall)
-        self.position_updater.update_object_collision(bullets, self.right_wall) 
-        self.position_updater.update_object_collision(enemies, self.bottom) 
-        
-    def check_game_over(self):
-        return self.player_status.is_game_over()
-
-# 적 생성 및 관리 책임 분리
-class EnemySpawner:
-    def __init__(self, enemy_creator):
-        self.enemy_creator = enemy_creator
-        self.enemies = []
-        self.running = True
-    
-    def start_spawning(self):
-        while self.running:
-            time.sleep(random.uniform(2, 5))
-            enemy = self.enemy_creator.create_object()
-            self.enemies.append(enemy)
-            print(f"Enemy 생성됨")
-    
-    def get_enemies(self):
-        return self.enemies
-        
-    def stop(self):
-        self.running = False
-
-class ShootingGame:
-    def __init__(self):
-        self.gun = GunObjectCreater().create_object()
-        self.enemy_creator = EnemyObjectCreater()
-        self.position_updater = PositionUpdater()
-        
-        self.enemy_spawner = EnemySpawner(self.enemy_creator)
-
-        self.handlers = {
-            "fire": FireHandler(self.gun),
-            "gameover": GameOverHandler()
-        }
-        
-        self.input_processor = InputProcessor(self.handlers)
-        self.game_updater = GameUpdater(self.position_updater, self.gun, self.enemy_spawner)
-        self.game_loop = GameLoopController(self.input_processor, self.game_updater, self.enemy_spawner)
-    
-    def start(self):
-        self.game_loop.start()
-
-if __name__ == "__main__":
-    game = ShootingGame()
-    game.start()
