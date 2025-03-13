@@ -10,10 +10,11 @@ class GameObject:
 
 class Visible(GameObject, ABC):
     # 화면에 보이는 객체-> 위치(좌표)와 크기를 갖고 있음
+    size = 0
+    
     def __init__(self, point_x, point_y, size):
         self.point_x = point_x
         self.point_y = point_y
-        self.size = size
     
     @abstractmethod
     def get_position(self):
@@ -23,13 +24,14 @@ class Visible(GameObject, ABC):
 
 class Movable(Visible, ABC):
     # 화면에 보이는 객체 중 움직이는 객체-> 속도(속력+방향) 갖고 있음
-    def __init__(self, point_x, point_y, size, angle, speed):
+    size = 0
+    speed = 0
+
+    def __init__(self, angle, point_x, point_y):
+        self.angle = angle
         self.point_x = point_x
         self.point_y = point_y
-        self.size = size
-        self.angle = angle
-        self.speed = speed
-    
+        
     @abstractmethod
     def update_position(self):
         pass
@@ -43,7 +45,6 @@ class Collidable(Movable, ABC):
         self.angle = angle
         self.point_x = point_x
         self.point_y = point_y
-        
         self.coll_handler = coll_handler 
 
     def is_collide_at(self, object):
@@ -52,6 +53,7 @@ class Collidable(Movable, ABC):
 class Bullet(Collidable):
     # fire할 때 생성되고 enemy, 벽이랑 충돌 체크해야 하는 Collidable 객체
     speed = 50
+    size = 20
 
     def __init__(self, angle, point_x, point_y, coll_handler):
         self.angle = angle
@@ -117,7 +119,7 @@ class Enemy(Collidable):
         a1, b1, a2, b2 = object.get_position()
         
         if x2 >= a1 and y2 >= b1 and a2 >= x1 and b2 >= y1:
-            self.coll_handler.collide_occur(object)
+            self.coll_handler.collide_occur(self)
 
 class GameFrame(Visible, ABC):
     # GameObject들이 등장하는 게임 화면
@@ -127,7 +129,8 @@ class GameFrame(Visible, ABC):
     def __init__(self, width, height):
         self.width = width
         self.height = height
-
+    
+    @abstractmethod
     def get_position(self):
         pass
 
@@ -138,7 +141,7 @@ class Bottom(GameFrame):
     
 class LeftWalls(GameFrame):
     def get_position(self):
-        return 0, 0, 0, self.height 
+        return 0, 0, 0, self.height
 
 class RightWalls(GameFrame):
     def get_position(self):
@@ -155,15 +158,6 @@ class PlayerStatus(GameObject):
     def lose_life(self):
         self.life -= 1
 
-class CollisionHandler(ABC):
-    # 충돌 처리를 관리하는 객체 
-    # 충돌 타입에 따라 PlayerStatus에게 요청
-    player_status = PlayerStatus()
-
-    @abstractmethod
-    def collide_occur(self, unit1, unit2):
-        pass
-
 class VisibleObjectCreater(ABC):
     def create_object(self):
         pass
@@ -172,7 +166,7 @@ class EnemyObjectCreater(VisibleObjectCreater):
     SPAWN_POS = [50, 150, 250, 350, 450]
 
     def create_object(self):
-        return Enemy(random.choice(self.SPAWN_POS), 0, 20, 0, 100, EnemyCollisionHandler)
+        return Enemy(0, random.choice(self.SPAWN_POS), 0, EnemyCollisionHandler)
 
 class GunObjectCreater(VisibleObjectCreater):
     def create_object(self):
@@ -180,6 +174,8 @@ class GunObjectCreater(VisibleObjectCreater):
 
 class PositionUpdater:
     # Movable 타입 객체 위치를 틱당 업데이트하는 객체
+    # bullet, enemy를 알아야 함
+    
     def update_object_position(self):
         for bullet in self.bullets[:]:
             bullet.update_position()
@@ -188,9 +184,10 @@ class PositionUpdater:
             enemy.update_position()
         
         for bullet in self.bullets[:]:
-            bullet.is_collide_at(enemy)
-            bullet.is_collide_at(LeftWalls)
-            bullet.is_collide_at(RightWalls)
+            for enemy in self.enemies[:]:
+                bullet.is_collide_at(enemy)
+                bullet.is_collide_at(LeftWalls)
+                bullet.is_collide_at(RightWalls)
         
         for enemy in self.enemies[:]:
             enemy.is_collide_at(Bottom)
@@ -211,9 +208,10 @@ class FireHandler(PlayerInputHandler):
 class GameOverHandler(PlayerInputHandler):
     def handle_input(self, game, *args):
         print("Game Over")
-        game.running = False  
+        game.running = False
 
 class ShootingGame:
+    # 사실상의 Controller 역할
     # 내부에 GameObject 객체를 갖고 있음(합성)
     obj = GameObject()
     enemy_creator = EnemyObjectCreater()
@@ -262,6 +260,15 @@ class ShootingGame:
             time.sleep(random.uniform(2, 5))
             self.spawn_enemy()
 
+class CollisionHandler(ABC):
+    # 충돌 처리를 관리하는 객체 
+    # 충돌 타입에 따라 PlayerStatus에게 요청
+    player_status = PlayerStatus()
+
+    @abstractmethod
+    def collide_occur(self, unit1, unit2):
+        pass
+    
 class BulletCollisionHandler(CollisionHandler):
     # 총알 객체의 충돌 처리
     # 분기 오버로딩 처리
@@ -277,7 +284,7 @@ class BulletCollisionHandler(CollisionHandler):
         bullet.reflex()
 
 class EnemyCollisionHandler(CollisionHandler):
-    def collide_occur(self, enemy, GameFrame):
+    def collide_occur(self, enemy):
         enemy.delete()
         self.ps.lose_life()
 
