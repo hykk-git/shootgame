@@ -188,15 +188,16 @@ class PositionUpdater:
     def update_object_position(self, object):
         object.update_position()
     
-    def update_object_collision(self, object1, object2):
-        for bullet in self.bullets[:]:
-            for enemy in self.enemies[:]:
-                bullet.is_collide_at(enemy)
-                bullet.is_collide_at(LeftWalls)
-                bullet.is_collide_at(RightWalls)
-        
-        for enemy in self.enemies[:]:
-            enemy.is_collide_at(Bottom)
+    @dispatch(list, list)
+    def update_object_collision(self, moving_objects, collided_objects):
+        for moved in moving_objects:
+            for attacked in collided_objects:
+                moved.is_collide_at(attacked)
+
+    @dispatch(list, Visible)  
+    def update_object_collision(self, objects, visible):
+        for object in objects:
+            object.is_collide_at(visible)
 
 class PlayerInputHandler(ABC):
     @abstractmethod
@@ -241,7 +242,7 @@ class ShootingGame:
             self.update_game()
 
     def interpret(self, user_input):
-        # 플레이어가 fire 누르면 총알 나가게
+        # 콘솔 input 종류 해석하는 함수
         tokens = user_input.strip().lower().split()
         if not tokens:
             return
@@ -253,7 +254,7 @@ class ShootingGame:
     
     def update_game(self):
         # 객체 상태 갱신(위치, 플레이어 상태)
-        time.sleep(1) 
+        time.sleep(1)
         self.position_updater.update_object_position()
    
     def spawn(self):
