@@ -80,7 +80,6 @@ class Bullet(Collidable):
 
 class Gun(Visible):
     # 총알을 발사하는 총 객체-> 내부에 총알을 가지고 있음
-    bullets = []
     max_bullet = 3
     size = 100
 
@@ -88,7 +87,12 @@ class Gun(Visible):
         # 현재 좌표(점) 초기화
         self.point_x = point_x
         self.point_y = point_y
+        self.bullets = []
 
+    def get_bullets(self):
+        # 생성된 Bullet들을 리스트로 반환
+        return self.bullets
+    
     def get_position(self):
         # 현재 위치(영역) 반환
         return self.point_x, self.point_y, self.point_x + self.size, self.point_y + self.size
@@ -107,6 +111,7 @@ class Enemy(Collidable):
         self.angle = angle
         self.point_x = point_x
         self.point_y = point_y
+        self.coll_handler = coll_handler
     
     def update_position(self):
         self.point_y += self.speed
@@ -149,8 +154,9 @@ class RightWalls(GameFrame):
 
 class PlayerStatus(GameObject):
     # User Info 관리 - DB에 저장 필요
-    score = 0
-    life = 3
+    def __init__(self):
+        self.score = 0
+        self.life = 3
 
     def update_score(self):
         self.score += 1
@@ -168,12 +174,16 @@ class EnemyObjectCreater(VisibleObjectCreater):
     SPAWN_POS = [50, 150, 250, 350, 450]
 
     def create_object(self):
-        return Enemy(0, random.choice(self.SPAWN_POS), 0, EnemyCollisionHandler)
+        return Enemy(0, random.choice(self.SPAWN_POS), 0, EnemyCollisionHandler())
 
 class GunObjectCreater(VisibleObjectCreater):
     # Visible한 Gun 객체를 생성하는 팩토리
     def create_object(self):
         return Gun(Bottom.get_position()[2]//2, 0)
+
+""" 
+여기 아래부터 수정 필요
+"""
 
 class PositionUpdater:
     # Movable 타입 객체 위치를 틱당 업데이트하는 객체
