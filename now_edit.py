@@ -122,7 +122,7 @@ class Enemy(Collidable):
             self.coll_handler.collide_occur(self)
 
 class GameFrame(Visible, ABC):
-    # GameObject들이 등장하는 게임 화면
+    # GameObject들이 등장하는 게임 화면 크기를 정의한 객체
     width = 0
     height = 0
 
@@ -159,30 +159,36 @@ class PlayerStatus(GameObject):
         self.life -= 1
 
 class VisibleObjectCreater(ABC):
+    # Visible한 객체를 생성하는 추상 팩토리
     def create_object(self):
         pass
 
 class EnemyObjectCreater(VisibleObjectCreater):
+    # Visible한 Enemy 객체를 생성하는 추상 팩토리
     SPAWN_POS = [50, 150, 250, 350, 450]
 
     def create_object(self):
         return Enemy(0, random.choice(self.SPAWN_POS), 0, EnemyCollisionHandler)
 
 class GunObjectCreater(VisibleObjectCreater):
+    # Visible한 Gun 객체를 생성하는 팩토리
     def create_object(self):
         return Gun(Bottom.get_position()[2]//2, 0)
 
 class PositionUpdater:
     # Movable 타입 객체 위치를 틱당 업데이트하는 객체
-    # bullet, enemy를 알아야 함
     
-    def update_object_position(self):
-        for bullet in self.bullets[:]:
-            bullet.update_position()
-            
-        for enemy in self.enemies[:]:
-            enemy.update_position()
-        
+    # bullet, enemy 리스트를 받아서 위치 업데이트하는 함수
+    @dispatch(list)
+    def update_object_position(self, objects):
+        for object in objects:
+            object.update_position()
+
+    @dispatch(GameObject)
+    def update_object_position(self, object):
+        object.update_position()
+    
+    def update_object_collision(self, object1, object2):
         for bullet in self.bullets[:]:
             for enemy in self.enemies[:]:
                 bullet.is_collide_at(enemy)
@@ -194,7 +200,7 @@ class PositionUpdater:
 
 class PlayerInputHandler(ABC):
     @abstractmethod
-    def handle_input(self, input):
+    def handle_input(self, input): 
         pass
 
 class FireHandler(PlayerInputHandler):
@@ -249,16 +255,15 @@ class ShootingGame:
         # 객체 상태 갱신(위치, 플레이어 상태)
         time.sleep(1) 
         self.position_updater.update_object_position()
-
-    def spawn_enemy(self):
-        # enemy 타입 오브젝트 자동 생성
-        enemy = self.enemy_creator.create_object()
-        print(f"Enemy 생성됨")
-
+   
     def spawn(self):
+        # 2~5초 사이 랜덤 시간으로 enemy를 생성하는 함수
+        enemies = []
         while self.running:
             time.sleep(random.uniform(2, 5))
-            self.spawn_enemy()
+            enemy = self.enemy_creator.create_object()
+            enemies.append(enemy)
+            print(f"Enemy 생성됨")
 
 class CollisionHandler(ABC):
     # 충돌 처리를 관리하는 객체 
@@ -278,15 +283,18 @@ class BulletCollisionHandler(CollisionHandler):
         bullet.delete()
         enemy.delete()
         self.ps.update_score()
+        print("score를 얻음!")
 
     @dispatch(Bullet, GameFrame)
     def collide_occur(self, bullet):
         bullet.reflex()
+        print("bullet 반사됨")
 
 class EnemyCollisionHandler(CollisionHandler):
     def collide_occur(self, enemy):
         enemy.delete()
         self.ps.lose_life()
+        print("life 깎임")
 
 if __name__ == "__main__":
     game = ShootingGame()
