@@ -2,3 +2,4 @@ Django
 djangorestframework
 overrides
 django-extensions
+multipledispatch
