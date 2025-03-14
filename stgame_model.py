@@ -2,28 +2,67 @@ import math
 from abc import * 
 from multipledispatch import dispatch
 import random
+import time
+import threading
 
-class ShootingGameModel:
-    def __init__(self, width=800, height=600):
-        self.width = width
-        self.height = height
-        
-        # 게임 경계 생성
-        self.bottom = Bottom(width, height)
-        self.left_wall = LeftWalls(width, height)
-        self.right_wall = RightWalls(width, height)
-        
-        # 플레이어 상태 생성
-        self.player_status = PlayerStatus()
+class FireHandler(PlayerInputHandler):
+    def __init__(self, gun):
+        self.gun = gun
+    # gun_creater = GunObjectCreater()
+    # gun = gun_creater.create_object()
 
-        self.gun = GunObjectCreater().create_object()
-        self.enemies = []
-        
-    def fire_gun(self, angle):
+    def handle_input(self, game, *args):
+        angle = int(args[0])
         self.gun.fire(angle)
 
+class GameOverHandler(PlayerInputHandler):
+    def handle_input(self, game, *args):
+        print("Game Over")
+        game.running = False
+        
+class ShootingGame:
+    def __init__(self):
+        self.handlers = {
+            "fire": FireHandler(),
+            "gameover": GameOverHandler()
+        }
+        self.running = True
+        enemy_creator = EnemyObjectCreater()
+
+    def start(self):
+        # 게임 시작시 필요한 행동
+        threading.Thread(target=self.spawn, daemon=True).start()
+
+        while self.running:
+            user_input = input("> ")
+            self.interpret(user_input)
+            time.sleep(1)
+            self.position_updater.update_object_position()
+
+    def interpret(self, user_input):
+        # 콘솔 input 종류 해석하는 함수
+        tokens = user_input.strip().lower().split()
+        if not tokens:
+            return
+
+        command = tokens[0]  # 첫 번째 단어가 명령어
+        args = tokens[1:]  # 나머지는 인자
+
+        self.handlers[command].handle_input(self, *args)
+        
+   
+    def spawn(self):
+        # 2~5초 사이 랜덤 시간으로 enemy를 생성하는 함수
+        enemies = []
+        while self.running:
+            time.sleep(random.uniform(2, 5))
+            enemy = self.enemy_creator.create_object()
+            enemies.append(enemy)
+            print(f"Enemy 생성됨")
+
 class GameObject:
-    pass
+    def __init__(self, name):
+        self.name = name
 
 class Visible(GameObject, ABC):
     # 화면에 보이는 객체-> 위치(좌표)와 크기를 갖고 있음
@@ -180,8 +219,8 @@ class PlayerStatus(GameObject):
     def lose_life(self):
         self.life -= 1
         
-    def is_game_over(self):
-        return self.life <= 0
+    def get_life(self):
+        return self.life
 
 class VisibleObjectCreater(ABC):
     # Visible한 객체를 생성하는 추상 팩토리
@@ -213,7 +252,6 @@ class CollisionHandler(ABC):
     
 class BulletCollisionHandler(CollisionHandler):
     # 총알 객체의 충돌 처리
-    # 분기 오버로딩 처리
 
     @dispatch(Bullet, Enemy)
     def collide_occur(self, bullet, enemy):
@@ -229,6 +267,33 @@ class EnemyCollisionHandler(CollisionHandler):
     def collide_occur(self, enemy):
         enemy.delete()
         self.player_status.lose_life()
-        
-    def get_player_status(self):
-        return self.player_status
+
+class PositionUpdater:
+    # Movable 타입 객체 위치를 화면에 틱당 업데이트하는 객체
+    
+    # bullet, enemy 리스트를 받아서 위치 업데이트하는 함수
+    @dispatch(list)
+    def update_object_position(self, objects):
+        for obj in objects:
+            obj.update_position()
+
+    @dispatch(GameObject)
+    def update_object_position(self, obj):
+        obj.update_position()
+    
+    @dispatch(list, list)
+    def update_object_collision(self, moving_objects, collided_objects):
+        for moving_object in moving_objects:
+            for attacked_object in collided_objects:
+                moving_object.is_collide_at(attacked_object)
+
+    @dispatch(list, Visible)  
+    def update_object_collision(self, objects, visible):
+        for object in objects:
+            object.is_collide_at(visible)
+
+                
+if __name__ == "__main__":
+    game = ShootingGame()
+    position_updater = PositionUpdater()
+    game.start(position_updater)

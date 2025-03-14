@@ -18,7 +18,7 @@ class Visible(GameObject, ABC):
     
     @abstractmethod
     def get_position(self):
-        # 자기 위치 반환 함수
+        # 현재 객체의 위치를 영역으로 반환하는 함수
         # 충돌 확인할 때 쓰임- 인자 순서가 x1, y1, x2, y2
         pass
 
@@ -28,10 +28,12 @@ class Movable(Visible, ABC):
     speed = 0
 
     def __init__(self, angle, point_x, point_y):
+        # 어떤 각도로 움직일지는 외부에서 지정 필요
         self.angle = angle
         self.point_x = point_x
         self.point_y = point_y
         
+    # 움직임을 갱신하는 함수: 반환값 없이 좌표 상태 변경
     @abstractmethod
     def update_position(self):
         pass
@@ -42,11 +44,13 @@ class Collidable(Movable, ABC):
     size = 20
 
     def __init__(self, angle, point_x, point_y, coll_handler):
+        # 내부에 충돌 처리 관리 객체 coll_handler를 가짐
         self.angle = angle
         self.point_x = point_x
         self.point_y = point_y
         self.coll_handler = coll_handler 
 
+    # 충돌을 확인하는 함수. 인자로 객체를 받고, 충돌했다면 자신과 그 객체를 반환
     def is_collide_at(self, object):
         pass
 
@@ -60,22 +64,25 @@ class Bullet(Collidable):
         self.point_x = point_x
         self.point_y = point_y
         self.coll_handler = coll_handler
-    
+
     def update_position(self):
         self.point_x += self.speed * math.sin(math.radians(self.angle))
         self.point_y -= self.speed * math.cos(math.radians(self.angle))
     
+    # 반사되어 튕기는 기능
     def reflex(self):
         self.angle = -self.angle
     
     def get_position(self):
         return self.point_x, self.point_y, self.point_x + self.size, self.point_y + self.size
 
+    # object와 충돌했냐고 물어보면, 충돌했다고 알리며 자신과 충돌한 객체를 반환
     def is_collide_at(self, object):
         x1, y1, x2, y2 = self.get_position()
         a1, b1, a2, b2 = object.get_position()
         
         if x2 >= a1 and y2 >= b1 and a2 >= x1 and b2 >= y1:
+            # 충돌 관리자에게 알림
             self.coll_handler.collide_occur(self, object)
             print("bullet 충돌")
 
@@ -137,8 +144,10 @@ class GameFrame(Visible, ABC):
         self.width = width
         self.height = height
     
+    # 충돌 처리를 위해 위치를 선이 아닌 영역으로 반환
     @abstractmethod
     def get_position(self):
+        # 순서: x1, y1, x2, y2
         pass
 
 class Bottom(GameFrame):
@@ -157,19 +166,27 @@ class RightWalls(GameFrame):
 class PlayerStatus(GameObject):
     # User Info 관리 - DB에 저장 필요
     def __init__(self):
+        # 초기값
         self.score = 0
         self.life = 3
 
     def update_score(self):
+        # 플레이어 점수를 1씩 업데이트
         self.score += 1
         print(f"현재 점수: {self.score}")
     
     def lose_life(self):
+        # 플레이어 생명을 1씩 깎음
         self.life -= 1
         print(f"남은 생명: {self.life}")
         
-    def is_game_over(self):
-        return self.life <= 0
+    def get_life(self):
+        # 게임 종료 조건 판단에 사용
+        return self.life
+    
+    def get_score(self):
+        # 현재 점수 프레임 밖에 띄우는 데 사용
+        return self.score
 
 class VisibleObjectCreater(ABC):
     # Visible한 객체를 생성하는 추상 팩토리
@@ -197,13 +214,12 @@ class PositionUpdater:
     def update_object_position(self, objects):
         for obj in objects:
             obj.update_position()
-            print(obj, "이동")
 
     @dispatch(GameObject)
     def update_object_position(self, obj):
         obj.update_position()
-        print(obj, "이동")
     
+    # 바뀐 위치에 대해 충돌이 일어났는지 확인하는 함수: 분리 필요
     @dispatch(list, list)
     def update_object_collision(self, moving_objects, collided_objects):
         for moved in moving_objects:
@@ -216,11 +232,13 @@ class PositionUpdater:
             object.is_collide_at(visible)
 
 class PlayerInputHandler(ABC):
+    # 콘솔로 받은 input이 의미하는 구체적인 동작을 실행하게 하는 추상 클래스
     @abstractmethod
     def handle_input(self, controller, *args): 
         pass
 
 class FireHandler(PlayerInputHandler):
+    # 총알 발사-> Gun에 angle을 지정해 발사하도록 함
     def __init__(self, gun):
         self.gun = gun
 
@@ -264,11 +282,8 @@ class EnemyCollisionHandler(CollisionHandler):
         enemy.delete()
         self.player_status.lose_life()
         print("life 깎임")
-        
-    def get_player_status(self):
-        return self.player_status
 
-# 콘솔 input을 위한 클래스
+# 콘솔 input을 반복해서 받기 위한 클래스
 class GameLoopController:
     def __init__(self, input_processor, game_updater, enemy_spawner):
         self.input_processor = input_processor
@@ -295,7 +310,7 @@ class GameLoopController:
         self.running = False
         self.enemy_spawner.stop()
 
-# 사용자 콘솔 입력 해석
+# 사용자 콘솔 입력 토큰 단위로 받아 넘겨주는 클래스
 class InputProcessor:
     def __init__(self, handlers):
         self.handlers = handlers
@@ -333,15 +348,14 @@ class GameUpdater:
         
         self.position_updater.update_object_position(bullets)
         self.position_updater.update_object_position(enemies)
+
+        # 바뀐 위치가 충돌이 일어난 곳인지
         self.position_updater.update_object_collision(bullets, enemies)
         self.position_updater.update_object_collision(bullets, self.left_wall)
         self.position_updater.update_object_collision(bullets, self.right_wall) 
         self.position_updater.update_object_collision(enemies, self.bottom) 
-        
-    def check_game_over(self):
-        return self.player_status.is_game_over()
 
-# 적 생성 및 관리 책임 분리
+# Enemy 틱당 반복 생성
 class EnemySpawner:
     def __init__(self, enemy_creator):
         self.enemy_creator = enemy_creator
@@ -351,7 +365,10 @@ class EnemySpawner:
     def start_spawning(self):
         while self.running:
             time.sleep(random.uniform(2, 5))
+
+            # enemy 공장으로부터 받아 옴
             enemy = self.enemy_creator.create_object()
+
             self.enemies.append(enemy)
             print(f"Enemy 생성됨")
     
